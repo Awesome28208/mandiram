@@ -64,13 +64,13 @@ export default function MandiramDashboard() {
       if (birth) {
         const ageMonths = Math.floor((today.getTime() - birth.getTime()) / (1000*60*60*24*30))
         // 3 aylık aşı zamanı
-        if (ageMonths === 3) warnings.push(\`\${a.animal_code}: 3 aylık aşı zamanı!\`)
-        if (ageMonths === 12) warnings.push(\`\${a.animal_code}: Yıllık aşı zamanı!\`)
+        if (ageMonths === 3) warnings.push(a.animal_code + ": 3 aylık aşı zamanı!")
+        if (ageMonths === 12) warnings.push(a.animal_code + ": Yıllık aşı zamanı!")
       }
     })
     if (warnings.length > 0) {
       new Notification('🐄 MandıraM Hatırlatma', {
-        body: warnings.slice(0,3).join('\n'),
+        body: warnings.slice(0,3).join("\n"),
         icon: '/icons/icon-192x192.png'
       })
     } else {
