@@ -33,11 +33,51 @@ export default function MandiramDashboard() {
   const [user, setUser] = useState<any>(null)
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const [showStats, setShowStats] = useState(true)
+  const [notifPerm, setNotifPerm] = useState<NotificationPermission | null>(null)
   const profileRef = useRef<HTMLDivElement>(null)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
-  useEffect(() => { fetchAnimals(); fetchUser() }, [])
+  useEffect(() => {
+    fetchAnimals()
+    fetchUser()
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotifPerm(Notification.permission)
+    }
+  }, [])
+
+  const requestNotifPerm = async () => {
+    if (!('Notification' in window)) return showToast('❌ Tarayıcı bildirim desteklemiyor')
+    const perm = await Notification.requestPermission()
+    setNotifPerm(perm)
+    if (perm === 'granted') showToast('🔔 Bildirimler açıldı!')
+    else showToast('🔕 Bildirim izni verilmedi')
+  }
+
+  const checkNotifications = () => {
+    if (notifPerm !== 'granted') return
+    const today = new Date()
+    // Aşı hatırlatması: 30 gün içinde aşı yapılmamış hayvanlar
+    const warnings: string[] = []
+    animals.forEach(a => {
+      const birth = a.birth_date ? new Date(a.birth_date) : null
+      if (birth) {
+        const ageMonths = Math.floor((today.getTime() - birth.getTime()) / (1000*60*60*24*30))
+        // 3 aylık aşı zamanı
+        if (ageMonths === 3) warnings.push(\`\${a.animal_code}: 3 aylık aşı zamanı!\`)
+        if (ageMonths === 12) warnings.push(\`\${a.animal_code}: Yıllık aşı zamanı!\`)
+      }
+    })
+    if (warnings.length > 0) {
+      new Notification('🐄 MandıraM Hatırlatma', {
+        body: warnings.slice(0,3).join('\n'),
+        icon: '/icons/icon-192x192.png'
+      })
+    } else {
+      showToast('✅ Tüm aşılar güncel!')
+    }
+  }
+
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -198,6 +238,14 @@ export default function MandiramDashboard() {
                 ⚙️ Admin
               </button>
             )}
+            {/* Bildirim Butonu */}
+            <button
+              onClick={notifPerm === 'granted' ? checkNotifications : requestNotifPerm}
+              title={notifPerm === 'granted' ? 'Aşı hatırlatmalarını kontrol et' : 'Bildirimlere izin ver'}
+              style={{ background: "rgba(255,255,255,0.15)", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 8, padding: "6px 10px", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
+            >
+              {notifPerm === 'granted' ? '🔔' : '🔕'}
+            </button>
             <button className="btn-hover" onClick={() => setShowAddModal(true)} style={{ background: "#52B788", color: "white", border: "none", borderRadius: 10, padding: "8px 18px", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
               + Hayvan Ekle
             </button>
