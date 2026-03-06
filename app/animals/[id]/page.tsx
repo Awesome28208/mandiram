@@ -810,6 +810,9 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [activeTab, setActiveTab] = useState<'info' | 'health' | 'milk' | 'repro' | 'move' | 'photos'>('info')
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -894,6 +897,102 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
       {/* Tab içeriği */}
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 16px 80px' }}>
 
+
+      {/* ── DÜZENLEME MODALI ──────────────────────────────────────── */}
+      {isEditing && editForm && (
+        <div onClick={(e) => { if (e.target === e.currentTarget) setIsEditing(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'Nunito, sans-serif' }}>
+          <div style={{ background: 'white', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontWeight: 900, fontSize: 18, color: '#1a2e1a' }}>✏️ Hayvanı Düzenle</div>
+              <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af' }}>×</button>
+            </div>
+
+            {[
+              { label: 'Küpe No', field: 'ear_tag_no' },
+              { label: '2. Küpe No', field: 'ear_tag_no_2' },
+              { label: 'Chip No', field: 'chip_no' },
+              { label: 'TÜRKVet No', field: 'turkvet_no' },
+              { label: 'Pasaport No', field: 'pasaport_no' },
+              { label: 'IKN', field: 'ikn' },
+              { label: 'Irk', field: 'breed' },
+              { label: 'Doğum Tarihi', field: 'birth_date', type: 'date' },
+              { label: 'Ağırlık (kg)', field: 'weight_kg', type: 'number' },
+              { label: 'Tahmini Kesim Ağırlığı', field: 'est_slaughter_weight', type: 'number' },
+              { label: 'Şehir', field: 'city' },
+              { label: 'İlçe', field: 'district' },
+            ].map(({ label, field, type }) => (
+              <div key={field} style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{label}</label>
+                <input
+                  type={type || 'text'}
+                  value={editForm[field] || ''}
+                  onChange={e => setEditForm((p: any) => ({ ...p, [field]: e.target.value }))}
+                  style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif', boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Tür</label>
+              <select value={editForm.species || ''} onChange={e => setEditForm((p: any) => ({ ...p, species: e.target.value }))}
+                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
+                <option value="buyukbas">Büyükbaş</option>
+                <option value="kucukbas">Küçükbaş</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Cinsiyet</label>
+              <select value={editForm.gender || ''} onChange={e => setEditForm((p: any) => ({ ...p, gender: e.target.value }))}
+                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
+                <option value="erkek">Erkek</option>
+                <option value="disi">Dişi</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Durum</label>
+              <select value={editForm.status || ''} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value }))}
+                style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
+                <option value="active">Aktif</option>
+                <option value="reserved">Rezerve</option>
+                <option value="sold">Satıldı</option>
+                <option value="slaughtered">Kesildi</option>
+                <option value="dead">Öldü</option>
+                <option value="archived">Arşiv</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Sağlık Notları</label>
+              <textarea value={editForm.health_notes || ''} onChange={e => setEditForm((p: any) => ({ ...p, health_notes: e.target.value }))}
+                rows={3} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+
+            <button disabled={saving} onClick={async () => {
+              setSaving(true)
+              const supabase = (await import('@/lib/supabase')).createClient()
+              const { data, error } = await supabase.from('animals').update({
+                ear_tag_no: editForm.ear_tag_no, ear_tag_no_2: editForm.ear_tag_no_2,
+                chip_no: editForm.chip_no, turkvet_no: editForm.turkvet_no,
+                pasaport_no: editForm.pasaport_no, ikn: editForm.ikn,
+                breed: editForm.breed, birth_date: editForm.birth_date,
+                weight_kg: editForm.weight_kg ? parseFloat(editForm.weight_kg) : null,
+                est_slaughter_weight: editForm.est_slaughter_weight ? parseFloat(editForm.est_slaughter_weight) : null,
+                city: editForm.city, district: editForm.district,
+                species: editForm.species, gender: editForm.gender,
+                status: editForm.status, health_notes: editForm.health_notes,
+              }).eq('id', animal.id).select().single()
+              if (!error && data) { setAnimal(data); setIsEditing(false) }
+              setSaving(false)
+            }} style={{ width: '100%', background: saving ? '#9ca3af' : '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '14px', fontSize: 15, fontWeight: 900, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              {saving ? '⏳ Kaydediliyor…' : '💾 Kaydet'}
+            </button>
+          </div>
+        </div>
+      )}
+
         {/* Genel Bilgiler */}
         {activeTab === 'info' && (
           <div>
@@ -942,7 +1041,7 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
               <button onClick={() => router.push(`/scan/${animal.id}`)} style={{ flex: 1, background: 'white', border: '1px solid #2D6A4F', color: '#2D6A4F', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 📱 QR Sayfası
               </button>
-              <button onClick={() => router.push(`/dashboard`)} style={{ flex: 1, background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+              <button onClick={() => { setEditForm({...animal}); setIsEditing(true) }} style={{ flex: 1, background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 ✏️ Düzenle
               </button>
             </div>
