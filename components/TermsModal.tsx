@@ -67,8 +67,12 @@ export default function TermsModal({ onAccepted }: { onAccepted: () => void }) {
               Abonelik ücretlerindeki değişiklikler en az <strong>15 gün önceden</strong> bildirilir. Abonelik iptali sonrası verilerinize <strong>15 gün</strong> daha erişebilirsiniz.
             </Madde>
 
-            <Madde no="5" baslik="SORUMLULUK SINIRI" son>
+            <Madde no="5" baslik="SORUMLULUK SINIRI">
               MandıraM; veri kaybı, yanlış kayıt, ticari zarar veya TÜRKVet gibi üçüncü taraf sistemleriyle entegrasyon sorunlarından kaynaklanan zararlardan sorumlu tutulamaz.
+            </Madde>
+
+            <Madde no="7" baslik="BETA SÜRÜMÜ" son>
+              Bu uygulama şu an <strong>beta (test) aşamasındadır</strong>. Yazılımda hatalar, eksiklikler veya beklenmedik davranışlar görülebilir. Verilerinizin düzenli yedeklerini almanız tavsiye edilir. Beta sürecinde geri bildirimleriniz uygulamanın geliştirilmesi için değerlidir.
             </Madde>
           </div>
 
@@ -78,27 +82,27 @@ export default function TermsModal({ onAccepted }: { onAccepted: () => void }) {
               🔒 KİŞİSEL VERİLERİN KORUNMASI (KVKK)
             </div>
 
-            <Madde no="6" baslik="VERİ SORUMLUSU">
+            <Madde no="7" baslik="VERİ SORUMLUSU">
               MandıraM — İletişim: <strong>mandiram.destek@gmail.com</strong>
             </Madde>
 
-            <Madde no="7" baslik="TOPLANAN VERİLER">
+            <Madde no="8" baslik="TOPLANAN VERİLER">
               Ad, e-posta, telefon (hesap için); işletme bilgileri ve hayvan kayıtları; yüklenen fotoğraf ve belgeler.
             </Madde>
 
-            <Madde no="8" baslik="NEDEN TOPLUYORUZ">
+            <Madde no="9" baslik="NEDEN TOPLUYORUZ">
               Hizmeti sunmak, hesabınızı yönetmek ve yasal yükümlülükleri yerine getirmek amacıyla.
             </Madde>
 
-            <Madde no="9" baslik="KİMLERLE PAYLAŞIYORUZ">
+            <Madde no="10" baslik="KİMLERLE PAYLAŞIYORUZ">
               Yalnızca altyapı sağlayıcılarımızla: <strong>Supabase</strong> (veri depolama) ve <strong>Vercel</strong> (uygulama sunumu). Verileriniz üçüncü taraflara <strong>kesinlikle satılmaz</strong>, reklam amaçlı kullanılmaz.
             </Madde>
 
-            <Madde no="10" baslik="HAKLARINIZ">
+            <Madde no="11" baslik="HAKLARINIZ">
               Verilerinize erişme, düzeltme, silme ve taşıma hakkına sahipsiniz. Talepler için: <strong>mandiram.destek@gmail.com</strong>
             </Madde>
 
-            <Madde no="11" baslik="VERİ SAKLAMA" son>
+            <Madde no="12" baslik="VERİ SAKLAMA" son>
               Hesap kapatıldıktan <strong>15 gün</strong> sonra verileriniz kalıcı olarak silinir.
             </Madde>
           </div>
