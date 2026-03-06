@@ -1,0 +1,89 @@
+{
+  "name": "mandiram",
+  "version": "1.0.0",
+  "description": "MandıraM — Dijital Hayvan Kayıt ve Yönetim Sistemi",
+  "author": "MandıraM <info@mandiram.com>",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "export": "next build && next export",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "npm run export && electron-builder",
+    "electron:build:win": "npm run export && electron-builder --win",
+    "electron:build:mac": "npm run export && electron-builder --mac",
+    "electron:build:all": "npm run export && electron-builder --win --mac"
+  },
+  "dependencies": {
+    "@ducanh2912/next-pwa": "^10.2.9",
+    "@supabase/ssr": "^0.5.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "next": "14.1.0",
+    "next-pwa": "^5.6.0",
+    "qrcode": "^1.5.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.mandiram.app",
+    "productName": "MandıraM",
+    "copyright": "Copyright © 2024 MandıraM",
+    "directories": {
+      "output": "dist",
+      "buildResources": "public/icons"
+    },
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icons/icon-512x512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MandıraM"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icons/icon-512x512.png",
+      "category": "public.app-category.business"
+    },
+    "publish": null
+  }
+}
