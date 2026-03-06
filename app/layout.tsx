@@ -1,25 +1,30 @@
 // app/layout.tsx — Root Layout with PWA support
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#2D6A4F',
+}
 
 export const metadata: Metadata = {
   title: 'MandıraM — Hayvan Kayıt Sistemi',
   description: 'Besiciler için dijital hayvan kayıt, takip ve yönetim sistemi',
   manifest: '/manifest.json',
-  themeColor: '#2D6A4F',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'MandıraM',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   icons: {
-    apple: '/icons/icon-192x192.png',
-    icon: '/icons/icon-192x192.png',
+    apple: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    icon: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
   },
 }
 
