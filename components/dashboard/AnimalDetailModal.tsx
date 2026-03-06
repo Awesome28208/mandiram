@@ -54,29 +54,31 @@ function YerimTabibi({ animal }: { animal: any }) {
 
     async function fetchData() {
       setLoading(true)
-      const promises: Promise<any>[] = []
+      const promises: Promise<{type: string; data: any[]}>[] = []
 
       if (showSut) {
         promises.push(
-          sb.from("milk_records")
-            .select("record_date, amount_liters, session, notes")
-            .eq("animal_id", animal.id)
-            .gte("record_date", `${year}-01-01`)
-            .lte("record_date", `${year}-12-31`)
-            .order("record_date")
-            .then(r => ({ type: "sut", data: r.data || [] }))
+          Promise.resolve(
+            sb.from("milk_records")
+              .select("record_date, amount_liters, session, notes")
+              .eq("animal_id", animal.id)
+              .gte("record_date", `${year}-01-01`)
+              .lte("record_date", `${year}-12-31`)
+              .order("record_date")
+          ).then(r => ({ type: "sut", data: r.data || [] }))
         )
       }
 
       if (showEt) {
         promises.push(
-          sb.from("animal_logs")
-            .select("created_at, weight_kg, notes")
-            .eq("animal_id", animal.id)
-            .not("weight_kg", "is", null)
-            .order("created_at", { ascending: false })
-            .limit(12)
-            .then(r => ({ type: "et", data: r.data || [] }))
+          Promise.resolve(
+            sb.from("animal_logs")
+              .select("created_at, weight_kg, notes")
+              .eq("animal_id", animal.id)
+              .not("weight_kg", "is", null)
+              .order("created_at", { ascending: false })
+              .limit(12)
+          ).then(r => ({ type: "et", data: r.data || [] }))
         )
       }
 
