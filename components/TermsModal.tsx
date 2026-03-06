@@ -79,7 +79,7 @@ export default function TermsModal({ onAccepted }: { onAccepted: () => void }) {
             </div>
 
             <Madde no="6" baslik="VERİ SORUMLUSU">
-              MandıraM — İletişim: <strong>mandiram.yardim@gmail.com</strong>
+              MandıraM — İletişim: <strong>mandiram.destek@gmail.com</strong>
             </Madde>
 
             <Madde no="7" baslik="TOPLANAN VERİLER">
@@ -95,7 +95,7 @@ export default function TermsModal({ onAccepted }: { onAccepted: () => void }) {
             </Madde>
 
             <Madde no="10" baslik="HAKLARINIZ">
-              Verilerinize erişme, düzeltme, silme ve taşıma hakkına sahipsiniz. Talepler için: <strong>mandiram.yardim@gmail.com</strong>
+              Verilerinize erişme, düzeltme, silme ve taşıma hakkına sahipsiniz. Talepler için: <strong>mandiram.destek@gmail.com</strong>
             </Madde>
 
             <Madde no="11" baslik="VERİ SAKLAMA" son>
