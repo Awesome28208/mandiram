@@ -1,8 +1,9 @@
 'use client'
 // components/dashboard/AddAnimalModal.tsx — v1.1 Zengin Form
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { uploadAnimalPhoto } from "@/lib/uploadPhoto"
+import { createClient } from "@/lib/supabase"
 import { BUYUKBAS_BREEDS, KUCUKBAS_BREEDS, TURKISH_CITIES } from "@/types_v1.1"
 
 function generateCode(): string {
@@ -56,9 +57,37 @@ export default function AddAnimalModal({ onClose, onAdd }: {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<FormState>(initialForm)
+  const [chipStatus, setChipStatus] = useState<'idle' | 'valid' | 'invalid' | 'duplicate' | 'checking'>('idle')
+  const [chipError, setChipError] = useState<string>('')
+  const [showScanner, setShowScanner] = useState(false)
+  const scannerRef = useRef<HTMLDivElement>(null)
 
   const set = (field: keyof FormState, val: string) =>
     setForm(p => ({ ...p, [field]: val }))
+
+  // ISO 11784/11785 chip no validasyonu
+  const validateChip = async (chipNo: string) => {
+    if (!chipNo || chipNo.trim() === '') { setChipStatus('idle'); setChipError(''); return }
+    const clean = chipNo.replace(/\s/g, '')
+    // Sadece rakam, 15 hane
+    if (!/^\d{15}$/.test(clean)) {
+      setChipStatus('invalid')
+      setChipError("Chip no 15 haneli rakamdan olusmalı (su an " + clean.length + " hane)")
+      return
+    }
+    setChipStatus('checking')
+    setChipError('')
+    // Duplicate kontrol
+    const supabase = createClient()
+    const { data } = await supabase.from('animals').select('id, ear_tag_no').eq('chip_no', clean).maybeSingle()
+    if (data) {
+      setChipStatus('duplicate')
+      setChipError('\u26a0\ufe0f Bu chip no zaten kayitli - Kupe: ' + (data.ear_tag_no || data.id))
+    } else {
+      setChipStatus('valid')
+      setChipError('')
+    }
+  }
 
   const breeds = form.species === "buyukbas" ? BUYUKBAS_BREEDS : KUCUKBAS_BREEDS
 
@@ -91,7 +120,7 @@ export default function AddAnimalModal({ onClose, onAdd }: {
         cover_photo_url,
       })
     } catch (err: any) {
-      setErrorMsg(`❌ Hata: ${err?.message || "Bilinmeyen hata"}`)
+      setErrorMsg("Hata: " + (err?.message || "Bilinmeyen hata"))
     } finally {
       setSaving(false)
       setUploadProgress(false)
@@ -269,7 +298,78 @@ export default function AddAnimalModal({ onClose, onAdd }: {
               </div>
               <div style={{ gridColumn: "1/-1" }}>
                 {lbl("Chip No (15 hane ISO 11784/11785)")}
-                {inp("chip_no", "982000123456789")}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={form.chip_no}
+                    onChange={e => { set("chip_no", e.target.value); setChipStatus('idle') }}
+                    onBlur={e => validateChip(e.target.value)}
+                    placeholder="982000123456789"
+                    maxLength={15}
+                    style={{
+                      width: '100%', padding: '10px 80px 10px 12px', border: `1.5px solid ${chipStatus === 'valid' ? '#22c55e' : chipStatus === 'invalid' || chipStatus === 'duplicate' ? '#ef4444' : '#d1d5db'}`,
+                      borderRadius: 8, fontSize: 14, fontFamily: 'Nunito, sans-serif', boxSizing: 'border-box' as const,
+                      background: chipStatus === 'valid' ? '#f0fdf4' : chipStatus === 'invalid' || chipStatus === 'duplicate' ? '#fef2f2' : 'white'
+                    }}
+                  />
+                  {/* Sağdaki butonlar */}
+                  <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
+                    {chipStatus === 'checking' && <span style={{ fontSize: 16 }}>⏳</span>}
+                    {chipStatus === 'valid' && <span style={{ fontSize: 16 }}>✅</span>}
+                    {(chipStatus === 'invalid' || chipStatus === 'duplicate') && <span style={{ fontSize: 16 }}>❌</span>}
+                    {/* 📷 Kamera barkod okuma butonu */}
+                    <button type="button" onClick={() => setShowScanner(s => !s)}
+                      title="Kamera ile barkod/QR oku"
+                      style={{ background: showScanner ? '#2D6A4F' : '#f3f4f6', border: '1px solid #d1d5db', borderRadius: 6, padding: '2px 6px', cursor: 'pointer', fontSize: 14 }}>
+                      📷
+                    </button>
+                  </div>
+                </div>
+                {/* Hata / uyarı mesajı */}
+                {chipError && (
+                  <div style={{ fontSize: 12, marginTop: 4, color: chipStatus === 'duplicate' ? '#d97706' : '#ef4444', fontWeight: 600 }}>
+                    {chipError}
+                  </div>
+                )}
+                {chipStatus === 'valid' && (
+                  <div style={{ fontSize: 12, marginTop: 4, color: '#16a34a', fontWeight: 600 }}>✅ Geçerli chip no, sistemde kayıtlı değil</div>
+                )}
+                {/* Kamera Scanner */}
+                {showScanner && (
+                  <div style={{ marginTop: 8, border: '2px dashed #2D6A4F', borderRadius: 10, padding: 12, background: '#f0fdf4' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#2D6A4F', marginBottom: 8 }}>📷 Barkod / QR Tarayıcı</div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
+                      Chip okuyucunuzun barkod çıktısını kamerayla okutun veya aşağıdaki alana yazın:
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        id="barcode-input"
+                        placeholder="Barkod okuyucuyla tarayın veya yapıştırın..."
+                        autoFocus
+                        style={{ flex: 1, padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, fontFamily: 'Nunito, sans-serif' }}
+                        onKeyDown={e => {
+                          // Barkod okuyucular genellikle Enter ile bitirir
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value.trim()
+                            if (val) { set('chip_no', val); validateChip(val); setShowScanner(false) }
+                          }
+                        }}
+                        onPaste={e => {
+                          const val = e.clipboardData.getData('text').trim()
+                          if (val) { setTimeout(() => { set('chip_no', val); validateChip(val); setShowScanner(false) }, 50) }
+                        }}
+                      />
+                      <button type="button" onClick={() => {
+                        const el = document.getElementById('barcode-input') as HTMLInputElement
+                        if (el?.value) { set('chip_no', el.value.trim()); validateChip(el.value.trim()); setShowScanner(false) }
+                      }} style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                        Uygula
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+                      💡 Fiziksel barkod okuyucu genellikle USB/Bluetooth ile bağlanır ve Enter tuşu gönderir. Chip no otomatik dolacaktır.
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={{ gridColumn: "1/-1", borderTop: "1px solid #d1fae5", paddingTop: 12, marginTop: 4 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#2D6A4F", textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 10 }}>
