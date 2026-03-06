@@ -40,6 +40,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  // /admin rotası: middleware seviyesinde rol kontrolü
+  if (session && request.nextUrl.pathname.startsWith('/admin')) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('auth_id', session.user.id)
+      .single()
+
+    if (!profile || profile.role !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
+
   return response
 }
 
