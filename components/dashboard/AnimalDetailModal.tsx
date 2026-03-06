@@ -1,7 +1,7 @@
 'use client'
 // components/dashboard/AnimalDetailModal.tsx
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { uploadAnimalPhoto } from "@/lib/uploadPhoto"
 import { BUYUKBAS_BREEDS, KUCUKBAS_BREEDS, TURKISH_CITIES } from "@/types_v1.1"
 
@@ -26,6 +26,186 @@ function calcAge(birthDate: string | null): { years: number; months: number } | 
   return { years, months }
 }
 
+
+// ─── Verim Takibi Bileşeni ───────────────────────────────────────────────────
+
+import { createBrowserClient } from "@supabase/ssr"
+
+const MONTHS_TR = ["Oca","Şub","Mar","Nis","May","Haz","Tem","Ağu","Eyl","Eki","Kas","Ara"]
+
+function YerimTabibi({ animal }: { animal: any }) {
+  const isBuyukbas = animal.species === "buyukbas"
+  const isDisi     = animal.gender === "disi"
+  const showSut    = isDisi  // süt: sadece dişi
+  const showYun    = !isBuyukbas && isDisi  // yün: küçükbaş dişi
+  const showEt     = true    // ağırlık/besi: her hayvanda
+
+  const [sutData, setSutData] = useState<any[]>([])
+  const [etData,  setEtData]  = useState<any[]>([])
+  const [yunData, setYunData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const sb = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const year = new Date().getFullYear()
+
+    async function fetchData() {
+      setLoading(true)
+      const promises: Promise<any>[] = []
+
+      if (showSut) {
+        promises.push(
+          sb.from("milk_records")
+            .select("record_date, amount_liters, session, notes")
+            .eq("animal_id", animal.id)
+            .gte("record_date", `${year}-01-01`)
+            .lte("record_date", `${year}-12-31`)
+            .order("record_date")
+            .then(r => ({ type: "sut", data: r.data || [] }))
+        )
+      }
+
+      if (showEt) {
+        promises.push(
+          sb.from("animal_logs")
+            .select("created_at, weight_kg, notes")
+            .eq("animal_id", animal.id)
+            .not("weight_kg", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(12)
+            .then(r => ({ type: "et", data: r.data || [] }))
+        )
+      }
+
+      const results = await Promise.all(promises)
+      results.forEach(r => {
+        if (r.type === "sut") setSutData(r.data)
+        if (r.type === "et")  setEtData(r.data)
+      })
+      setLoading(false)
+    }
+
+    fetchData()
+  }, [animal.id])
+
+  // Süt verisini aylık topla
+  const sutAylik: Record<number, number> = {}
+  sutData.forEach(r => {
+    const m = new Date(r.record_date).getMonth()
+    sutAylik[m] = (sutAylik[m] || 0) + (r.amount_liters || 0)
+  })
+
+  const cardStyle: React.CSSProperties = {
+    background: "#f8fdf9", borderRadius: 12, padding: "14px 16px", marginBottom: 12
+  }
+  const headerStyle: React.CSSProperties = {
+    fontSize: 11, fontWeight: 800, color: "#6b7280",
+    textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10
+  }
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: "32px 0", color: "#9ca3af" }}>⏳ Yükleniyor...</div>
+  )
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+
+      {/* SÜT VERİMİ */}
+      {showSut && (
+        <div style={cardStyle}>
+          <div style={headerStyle}>🥛 Süt Verimi — {new Date().getFullYear()}</div>
+          {sutData.length === 0 ? (
+            <div style={{ color: "#9ca3af", fontSize: 12, textAlign: "center", padding: "12px 0" }}>
+              Henüz süt kaydı yok
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr>
+                  {Object.keys(sutAylik).map(m => (
+                    <th key={m} style={{ padding: "4px 6px", color: "#9ca3af", fontWeight: 700, textAlign: "center" }}>
+                      {MONTHS_TR[Number(m)]}
+                    </th>
+                  ))}
+                  <th style={{ padding: "4px 6px", color: "#2D6A4F", fontWeight: 800, textAlign: "center" }}>Toplam</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  {Object.values(sutAylik).map((v, i) => (
+                    <td key={i} style={{ padding: "4px 6px", textAlign: "center", fontWeight: 700, color: "#1a3d2b" }}>
+                      {v.toFixed(1)}L
+                    </td>
+                  ))}
+                  <td style={{ padding: "4px 6px", textAlign: "center", fontWeight: 900, color: "#2D6A4F" }}>
+                    {Object.values(sutAylik).reduce((a,b) => a+b, 0).toFixed(1)}L
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* YÜN VERİMİ */}
+      {showYun && (
+        <div style={cardStyle}>
+          <div style={headerStyle}>🧶 Yün Verimi</div>
+          <div style={{ color: "#9ca3af", fontSize: 12, textAlign: "center", padding: "12px 0" }}>
+            Yün takibi yakında eklenecek
+          </div>
+        </div>
+      )}
+
+      {/* AĞIRLIK / BESİ TAKİBİ */}
+      {showEt && (
+        <div style={cardStyle}>
+          <div style={headerStyle}>⚖️ Ağırlık Geçmişi</div>
+          {etData.length === 0 ? (
+            <div style={{ color: "#9ca3af", fontSize: 12, textAlign: "center", padding: "12px 0" }}>
+              Henüz ağırlık kaydı yok
+            </div>
+          ) : (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: "4px 8px", color: "#9ca3af", fontWeight: 700, textAlign: "left" }}>Tarih</th>
+                  <th style={{ padding: "4px 8px", color: "#9ca3af", fontWeight: 700, textAlign: "right" }}>Kg</th>
+                  <th style={{ padding: "4px 8px", color: "#9ca3af", fontWeight: 700, textAlign: "right" }}>Değişim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {etData.map((r, i) => {
+                  const prev = etData[i + 1]
+                  const diff = prev ? (r.weight_kg - prev.weight_kg) : null
+                  return (
+                    <tr key={i} style={{ borderTop: "1px solid #e7f3ee" }}>
+                      <td style={{ padding: "6px 8px", color: "#6b7280" }}>
+                        {new Date(r.created_at).toLocaleDateString("tr-TR")}
+                      </td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 800, color: "#1a3d2b" }}>
+                        {r.weight_kg} kg
+                      </td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 700,
+                        color: diff === null ? "#9ca3af" : diff > 0 ? "#16a34a" : diff < 0 ? "#dc2626" : "#9ca3af" }}>
+                        {diff === null ? "—" : diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+    </div>
+  )
+}
+
 export default function AnimalDetailModal({ animal, onClose, onStatusChange, onUpdate, showToast }: {
   animal: any
   onClose: () => void
@@ -35,7 +215,7 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
 }) {
   const cfg = STATUS_CFG[animal.status] || STATUS_CFG.active
   const [isEditing, setIsEditing] = useState(false)
-  const [viewTab, setViewTab] = useState<1 | 2 | 3 | 4>(1)
+  const [viewTab, setViewTab] = useState<1 | 2 | 3 | 4 | 5>(1)
   const [editTab, setEditTab] = useState<1 | 2 | 3>(1)
   const [saving, setSaving] = useState(false)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -223,6 +403,7 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
                   { id: 2, icon: "🏷️", label: "Kimlik" },
                   { id: 3, icon: "🌳", label: "Soyağacı" },
                   { id: 4, icon: "📋", label: "Notlar" },
+                  { id: 5, icon: "📊", label: "Verim" },
                 ] as const).map(tab => (
                   <button key={tab.id} onClick={() => setViewTab(tab.id)} style={{
                     flex: 1, padding: "8px 4px",
@@ -353,6 +534,11 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Sekme 5 — Verim Takibi */}
+              {viewTab === 5 && (
+                <YerimTabibi animal={animal} />
               )}
             </>
           )}
