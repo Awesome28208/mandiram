@@ -44,6 +44,7 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
 
   const [form, setForm] = useState({
     name:                 animal.name                 || "",
+    species:              animal.species              || "buyukbas",
     breed:                animal.breed                || "",
     gender:               animal.gender               || "erkek",
     birth_date:           animal.birth_date           || "",
@@ -71,7 +72,16 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
     general_notes:        animal.general_notes        || "",
   })
 
-  type FormState = typeof form
+  type FormState = {
+    name: string; species: string; breed: string; gender: string;
+    birth_date: string; birth_type: string; weight_kg: string | number;
+    est_slaughter_weight: string | number; city: string; district: string;
+    status: string; ear_tag_no: string; ear_tag_no_2: string; chip_no: string;
+    turkvet_no: string; turkvet_kullanici_no: string; turkvet_bildiri_no: string;
+    pasaport_no: string; ikn: string; anne_kupe_no: string; baba_kupe_no: string;
+    anne_irki: string; baba_irki: string; soy_kutugu_sinifi: string;
+    health_notes: string; vaccination_notes: string; general_notes: string;
+  }
 
   const set = (field: keyof FormState, val: string) =>
     setForm(p => ({ ...p, [field]: val }))
@@ -103,6 +113,7 @@ export default function AnimalDetailModal({ animal, onClose, onStatusChange, onU
   const handleCancel = () => {
     setForm({
       name:                 animal.name                 || "",
+      species:              animal.species              || "buyukbas",
       breed:                animal.breed                || "",
       gender:               animal.gender               || "erkek",
       birth_date:           animal.birth_date           || "",
