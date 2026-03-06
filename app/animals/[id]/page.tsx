@@ -1,7 +1,7 @@
 'use client'
 // app/animals/[id]/page.tsx — Adım 4: Tabbed Hayvan Detay Sayfası
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
@@ -43,7 +43,102 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
   )
 }
 
-// ── AŞILAR ────────────────────────────────────────────────────────────────────
+// ── FOTOĞRAF GALERİSİ ─────────────────────────────────────────────────────────
+function PhotosTab({ animalId, coverPhotoUrl }: { animalId: string; coverPhotoUrl?: string }) {
+  const [photos, setPhotos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const load = async () => {
+    const supabase = createClient()
+    const { data } = await supabase.from('animal_media').select('*').eq('animal_id', animalId).order('created_at', { ascending: false })
+    setPhotos(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [animalId])
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setUploading(true)
+    const supabase = createClient()
+    for (const file of files) {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${animalId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+      const { error } = await supabase.storage.from('animal-media').upload(path, file, { upsert: false, contentType: file.type })
+      if (!error) {
+        const { data: urlData } = supabase.storage.from('animal-media').getPublicUrl(path)
+        await supabase.from('animal_media').insert({ animal_id: animalId, media_type: "photo", url: urlData.publicUrl, storage_path: path, view_label: file.name, file_size_bytes: file.size })
+      }
+    }
+    await load()
+    setUploading(false)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const handleDelete = async (photo: any) => {
+    if (!confirm('Bu fotoğrafı silmek istiyor musunuz?')) return
+    const supabase = createClient()
+    await supabase.storage.from('animal-media').remove([photo.storage_path])
+    await supabase.from('animal_media').delete().eq('id', photo.id)
+    setPhotos(prev => prev.filter(p => p.id !== photo.id))
+  }
+
+  const allPhotos = [
+    ...(coverPhotoUrl ? [{ id: 'cover', url: coverPhotoUrl, is_cover: true }] : []),
+    ...photos.filter(p => p.url !== coverPhotoUrl)
+  ]
+
+  return (
+    <div>
+      {/* Lightbox */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <img src={lightbox} alt="" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12, objectFit: 'contain' }} />
+          <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', fontSize: 24, width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontWeight: 900 }}>×</button>
+        </div>
+      )}
+
+      {/* Yükle butonu */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{allPhotos.length} fotoğraf</div>
+        <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: uploading ? 0.6 : 1 }}>
+          {uploading ? '⏳ Yükleniyor…' : '📷 Fotoğraf Ekle'}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} />
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Yükleniyor…</div>
+      ) : allPhotos.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>📷</div>
+          <div style={{ fontSize: 14 }}>Henüz fotoğraf yok</div>
+          <div style={{ fontSize: 12, marginTop: 4 }}>Yukarıdaki butonu kullanarak ekleyebilirsiniz</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+          {allPhotos.map((photo) => (
+            <div key={photo.id} style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: '#f3f4f6', border: photo.is_cover ? '3px solid #2D6A4F' : '1px solid #e5e7eb' }}>
+              <img src={photo.url} alt="" onClick={() => setLightbox(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer', display: 'block' }} />
+              {photo.is_cover && (
+                <div style={{ position: 'absolute', top: 6, left: 6, background: '#2D6A4F', color: 'white', fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 6 }}>KAPAK</div>
+              )}
+              {!photo.is_cover && (
+                <button onClick={() => handleDelete(photo)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(220,38,38,0.85)', border: 'none', color: 'white', width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', fontSize: 14, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 function VaccinationsTab({ animalId }: { animalId: string }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -714,7 +809,7 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
   const [animal, setAnimal] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
-  const [activeTab, setActiveTab] = useState<'info' | 'health' | 'milk' | 'repro' | 'move'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'health' | 'milk' | 'repro' | 'move' | 'photos'>('info')
 
   useEffect(() => {
     const supabase = createClient()
@@ -746,6 +841,7 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
   const age = calcAge(animal.birth_date)
   const tabs = [
     { key: 'info',   icon: '📋', label: 'Genel' },
+    { key: 'photos', icon: '📷', label: 'Fotoğraflar' },
     { key: 'health', icon: '🏥', label: 'Sağlık' },
     { key: 'milk',   icon: '🥛', label: 'Süt/Verim' },
     { key: 'repro',  icon: '🐣', label: 'Üreme' },
@@ -853,6 +949,7 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
           </div>
         )}
 
+        {activeTab === 'photos' && <PhotosTab animalId={params.id} coverPhotoUrl={animal.photo_url || animal.cover_photo_url} />}
         {activeTab === 'health' && <HealthTab animalId={params.id} />}
         {activeTab === 'milk'  && <MilkTab   animalId={params.id} />}
         {activeTab === 'repro' && <ReproductionTab animalId={params.id} />}

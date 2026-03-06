@@ -37,7 +37,7 @@ export default function AdminPanel() {
     const supabase = createClient()
     const [{ data: b }, { data: a }] = await Promise.all([
       supabase.from('users').select('*').order('created_at', { ascending: false }),
-      supabase.from('animals').select('*, users(full_name, email)').order('created_at', { ascending: false }),
+      supabase.from('animals').select('*').order('created_at', { ascending: false }),
     ])
     setBreeders(b || [])
     setAnimals(a || [])
@@ -61,7 +61,7 @@ export default function AdminPanel() {
     let filename = ''
     try {
       if (type === 'animals') {
-        const { data } = await supabase.from('animals').select('*, users(full_name, email)').order('created_at', { ascending: false })
+        const { data } = await supabase.from('animals').select('*').order('created_at', { ascending: false })
         headers = ['Sistem Kodu','Küpe No','2. Küpe','Chip No','TÜRKVet No','Pasaport No','IKN','Tür','Irk','Cinsiyet','Doğum Tarihi','Ağırlık (kg)','Tahmini Kesim','Durum','Şehir','İlçe','Besici','Kayıt Tarihi']
         rows = (data||[]).map(a => [a.animal_code,a.ear_tag_no,a.ear_tag_no_2||'',a.chip_no||'',a.turkvet_no||'',a.pasaport_no||'',a.ikn||'',a.species,a.breed,a.gender,a.birth_date||'',a.weight_kg||'',a.est_slaughter_weight||'',a.status,a.city||'',a.district||'',(a.users as any)?.full_name||'',a.created_at?.slice(0,10)])
         filename = `mandiram_hayvanlar_${new Date().toISOString().slice(0,10)}.csv`
