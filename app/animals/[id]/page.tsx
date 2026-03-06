@@ -1,5 +1,5 @@
 'use client'
-// app/animals/[id]/page.tsx — Adım 4: Tabbed Hayvan Detay Sayfası
+// app/animals/[id]/page.tsx — Adım 10: Silme + Inline Onay + Süt Grafiği
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -40,6 +40,22 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
       <div style={{ fontSize: 36, marginBottom: 8 }}>{icon}</div>
       <div style={{ fontSize: 14 }}>{text}</div>
     </div>
+  )
+}
+
+// ── İNLINE SİLME BUTONU ───────────────────────────────────────────────────────
+function DeleteBtn({ onDelete, deleting }: { onDelete: () => void; deleting: boolean }) {
+  const [confirm, setConfirm] = useState(false)
+  if (deleting) return <span style={{ fontSize: 11, color: '#9ca3af' }}>⏳</span>
+  if (confirm) return (
+    <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>Emin misin?</span>
+      <button onClick={onDelete} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Evet</button>
+      <button onClick={() => setConfirm(false)} style={{ background: '#f3f4f6', color: '#4b5563', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Hayır</button>
+    </span>
+  )
+  return (
+    <button onClick={() => setConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 16, padding: '2px 4px', opacity: 0.6, lineHeight: 1 }} title="Sil">🗑</button>
   )
 }
 
@@ -94,15 +110,12 @@ function PhotosTab({ animalId, coverPhotoUrl }: { animalId: string; coverPhotoUr
 
   return (
     <div>
-      {/* Lightbox */}
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <img src={lightbox} alt="" style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12, objectFit: 'contain' }} />
           <button onClick={() => setLightbox(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', fontSize: 24, width: 40, height: 40, borderRadius: '50%', cursor: 'pointer', fontWeight: 900 }}>×</button>
         </div>
       )}
-
-      {/* Yükle butonu */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 600 }}>{allPhotos.length} fotoğraf</div>
         <button onClick={() => fileRef.current?.click()} disabled={uploading} style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: uploading ? 0.6 : 1 }}>
@@ -110,14 +123,12 @@ function PhotosTab({ animalId, coverPhotoUrl }: { animalId: string; coverPhotoUr
         </button>
         <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleUpload} style={{ display: 'none' }} />
       </div>
-
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40, color: '#9ca3af' }}>Yükleniyor…</div>
       ) : allPhotos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>📷</div>
           <div style={{ fontSize: 14 }}>Henüz fotoğraf yok</div>
-          <div style={{ fontSize: 12, marginTop: 4 }}>Yukarıdaki butonu kullanarak ekleyebilirsiniz</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
@@ -138,31 +149,40 @@ function PhotosTab({ animalId, coverPhotoUrl }: { animalId: string; coverPhotoUr
   )
 }
 
-
+// ── AŞI ───────────────────────────────────────────────────────────────────────
 function VaccinationsTab({ animalId }: { animalId: string }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({ vaccine_name: '', vaccine_type: '', applied_date: '', next_due_date: '', applied_by: '', is_government: false, batch_no: '', notes: '' })
 
-  useEffect(() => {
+  const load = async () => {
     const supabase = createClient()
-    supabase.from('vaccinations').select('*').eq('animal_id', animalId).order('applied_date', { ascending: false })
-      .then(({ data }) => { setData(data || []); setLoading(false) })
-  }, [animalId])
+    const { data } = await supabase.from('vaccinations').select('*').eq('animal_id', animalId).order('applied_date', { ascending: false })
+    setData(data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [animalId])
 
   const save = async () => {
     if (!form.vaccine_name || !form.applied_date) return alert('Aşı adı ve tarih zorunlu!')
     setSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.from('vaccinations').insert({ ...form, animal_id: animalId })
-    if (error) { alert('Hata: ' + error.message); setSaving(false); return }
-    const { data: fresh } = await supabase.from('vaccinations').select('*').eq('animal_id', animalId).order('applied_date', { ascending: false })
-    setData(fresh || [])
+    await supabase.from('vaccinations').insert({ ...form, animal_id: animalId })
+    await load()
     setShowForm(false)
     setForm({ vaccine_name: '', vaccine_type: '', applied_date: '', next_due_date: '', applied_by: '', is_government: false, batch_no: '', notes: '' })
     setSaving(false)
+  }
+
+  const deleteRecord = async (id: string) => {
+    setDeleting(id)
+    const supabase = createClient()
+    await supabase.from('vaccinations').delete().eq('id', id)
+    setData(prev => prev.filter(r => r.id !== id))
+    setDeleting(null)
   }
 
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', textAlign: 'center' }}>Yükleniyor…</div>
@@ -175,18 +195,10 @@ function VaccinationsTab({ animalId }: { animalId: string }) {
           {showForm ? '✕ İptal' : '+ Ekle'}
         </button>
       </div>
-
       {showForm && (
         <div style={{ background: '#f8fdf8', border: '1px solid #d1fae5', borderRadius: 10, padding: 14, marginBottom: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            {[
-              ['vaccine_name', 'Aşı Adı *', 'text'],
-              ['vaccine_type', 'Aşı Türü / Üretici', 'text'],
-              ['applied_date', 'Uygulama Tarihi *', 'date'],
-              ['next_due_date', 'Sonraki Aşı Tarihi', 'date'],
-              ['applied_by', 'Uygulayan', 'text'],
-              ['batch_no', 'Parti No', 'text'],
-            ].map(([k, lbl, t]) => (
+            {[['vaccine_name','Aşı Adı *','text'],['vaccine_type','Aşı Türü / Üretici','text'],['applied_date','Uygulama Tarihi *','date'],['next_due_date','Sonraki Aşı Tarihi','date'],['applied_by','Uygulayan','text'],['batch_no','Parti No','text']].map(([k,lbl,t]) => (
               <div key={k}>
                 <label style={{ fontSize: 11, color: '#6b7280', fontWeight: 700, display: 'block', marginBottom: 3 }}>{lbl}</label>
                 <input type={t} value={(form as any)[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
@@ -208,7 +220,6 @@ function VaccinationsTab({ animalId }: { animalId: string }) {
           </button>
         </div>
       )}
-
       {data.length === 0 ? <EmptyState icon="💉" text="Henüz aşı kaydı yok" /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.map(v => (
@@ -218,7 +229,10 @@ function VaccinationsTab({ animalId }: { animalId: string }) {
                   <div style={{ fontWeight: 800, fontSize: 14, color: '#1a2e1a' }}>{v.vaccine_name}</div>
                   {v.vaccine_type && <div style={{ fontSize: 12, color: '#6b7280' }}>{v.vaccine_type}</div>}
                 </div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{v.applied_date}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{v.applied_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord(v.id)} deleting={deleting === v.id} />
+                </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                 {v.is_government && <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🏛 Devlet Programlı</span>}
@@ -243,23 +257,24 @@ function HealthTab({ animalId }: { animalId: string }) {
   const [activeSection, setActiveSection] = useState<'health' | 'meds' | 'vets'>('health')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [hForm, setHForm] = useState({ record_date: '', disease_name: '', symptoms: '', diagnosis: '', treatment_start: '', treatment_end: '', outcome: '', vet_name: '', notes: '' })
   const [mForm, setMForm] = useState({ applied_date: '', drug_name: '', drug_type: '', dose: '', route: '', withdrawal_days: '', applied_by: '', notes: '' })
   const [vForm, setVForm] = useState({ exam_date: '', vet_name: '', exam_type: 'Rutin', diagnosis: '', treatment: '', follow_up_date: '', exam_fee: '', notes: '' })
 
-  useEffect(() => {
+  const loadAll = async () => {
     const supabase = createClient()
-    Promise.all([
+    const [h, m, v] = await Promise.all([
       supabase.from('health_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false }),
       supabase.from('medications').select('*').eq('animal_id', animalId).order('applied_date', { ascending: false }),
       supabase.from('vet_examinations').select('*').eq('animal_id', animalId).order('exam_date', { ascending: false }),
-    ]).then(([h, m, v]) => {
-      setHealth(h.data || [])
-      setMeds(m.data || [])
-      setVets(v.data || [])
-      setLoading(false)
-    })
-  }, [animalId])
+    ])
+    setHealth(h.data || [])
+    setMeds(m.data || [])
+    setVets(v.data || [])
+    setLoading(false)
+  }
+  useEffect(() => { loadAll() }, [animalId])
 
   const saveHealth = async () => {
     if (!hForm.record_date || !hForm.disease_name) return alert('Tarih ve hastalık adı zorunlu!')
@@ -300,6 +315,14 @@ function HealthTab({ animalId }: { animalId: string }) {
     setSaving(false)
   }
 
+  const deleteRecord = async (table: string, id: string, setter: (fn: (prev: any[]) => any[]) => void) => {
+    setDeleting(id)
+    const supabase = createClient()
+    await supabase.from(table).delete().eq('id', id)
+    setter(prev => prev.filter(r => r.id !== id))
+    setDeleting(null)
+  }
+
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', textAlign: 'center' }}>Yükleniyor…</div>
 
   const sections = [
@@ -310,7 +333,6 @@ function HealthTab({ animalId }: { animalId: string }) {
 
   return (
     <div>
-      {/* Alt sekme */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
         {sections.map(s => (
           <button key={s.key} onClick={() => { setActiveSection(s.key as any); setShowForm(false) }}
@@ -393,9 +415,12 @@ function HealthTab({ animalId }: { animalId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {health.map(h => (
             <div key={h.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ fontWeight: 800, color: '#dc2626' }}>🏥 {h.disease_name}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{h.record_date}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{h.record_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord('health_records', h.id, setHealth)} deleting={deleting === h.id} />
+                </div>
               </div>
               {h.symptoms && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Belirtiler: {h.symptoms}</div>}
               {h.diagnosis && <div style={{ fontSize: 12, color: '#6b7280' }}>Tanı: {h.diagnosis}</div>}
@@ -411,9 +436,12 @@ function HealthTab({ animalId }: { animalId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {meds.map(m => (
             <div key={m.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ fontWeight: 800, color: '#1a2e1a' }}>💊 {m.drug_name}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{m.applied_date}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{m.applied_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord('medications', m.id, setMeds)} deleting={deleting === m.id} />
+                </div>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
                 {m.drug_type && <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{m.drug_type}</span>}
@@ -435,9 +463,12 @@ function HealthTab({ animalId }: { animalId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {vets.map(v => (
             <div key={v.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ fontWeight: 800, color: '#1a2e1a' }}>👨‍⚕️ {v.exam_type} Muayene</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{v.exam_date}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{v.exam_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord('vet_examinations', v.id, setVets)} deleting={deleting === v.id} />
+                </div>
               </div>
               {v.vet_name && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.vet_name}</div>}
               {v.diagnosis && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Tanı: {v.diagnosis}</div>}
@@ -452,19 +483,23 @@ function HealthTab({ animalId }: { animalId: string }) {
   )
 }
 
-// ── SÜT VERİMİ ────────────────────────────────────────────────────────────────
+// ── SÜT VERİMİ (grafik dahil) ────────────────────────────────────────────────
 function MilkTab({ animalId }: { animalId: string }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [showChart, setShowChart] = useState(false)
   const [form, setForm] = useState({ record_date: '', morning_lt: '', evening_lt: '', fat_percent: '', protein_percent: '', lactation_no: '1', notes: '' })
 
-  useEffect(() => {
+  const load = async () => {
     const supabase = createClient()
-    supabase.from('milk_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
-      .then(({ data }) => { setData(data || []); setLoading(false) })
-  }, [animalId])
+    const { data } = await supabase.from('milk_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
+    setData(data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [animalId])
 
   const save = async () => {
     if (!form.record_date) return alert('Tarih zorunlu!')
@@ -481,14 +516,21 @@ function MilkTab({ animalId }: { animalId: string }) {
       lactation_no: parseInt(form.lactation_no) || 1,
       notes: form.notes || null,
     })
-    const { data: fresh } = await supabase.from('milk_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
-    setData(fresh || [])
+    await load()
     setShowForm(false)
     setForm({ record_date: '', morning_lt: '', evening_lt: '', fat_percent: '', protein_percent: '', lactation_no: '1', notes: '' })
     setSaving(false)
   }
 
-  // Aylık özet hesapla
+  const deleteRecord = async (id: string) => {
+    setDeleting(id)
+    const supabase = createClient()
+    await supabase.from('milk_records').delete().eq('id', id)
+    setData(prev => prev.filter(r => r.id !== id))
+    setDeleting(null)
+  }
+
+  // Aylık özet
   const monthlyStats = () => {
     const grouped: Record<string, number[]> = {}
     data.forEach(r => {
@@ -496,22 +538,30 @@ function MilkTab({ animalId }: { animalId: string }) {
       if (m && r.total_lt) { if (!grouped[m]) grouped[m] = []; grouped[m].push(r.total_lt) }
     })
     return Object.entries(grouped).map(([month, vals]) => ({
-      month, total: vals.reduce((a, b) => a + b, 0).toFixed(1),
-      avg: (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2), count: vals.length,
-    })).sort((a, b) => b.month.localeCompare(a.month))
+      month, total: vals.reduce((a, b) => a + b, 0),
+      avg: vals.reduce((a, b) => a + b, 0) / vals.length, count: vals.length,
+    })).sort((a, b) => a.month.localeCompare(b.month))
   }
 
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', textAlign: 'center' }}>Yükleniyor…</div>
 
   const stats = monthlyStats()
+  const maxVal = stats.length ? Math.max(...stats.map(s => s.total)) : 1
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: '#1a2e1a' }}>🥛 Süt Verimi ({data.length} kayıt)</div>
-        <button onClick={() => setShowForm(s => !s)} style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          {showForm ? '✕ İptal' : '+ Kayıt Ekle'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {stats.length > 1 && (
+            <button onClick={() => setShowChart(s => !s)} style={{ background: showChart ? '#e0f2fe' : 'white', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              {showChart ? '📋 Liste' : '📈 Grafik'}
+            </button>
+          )}
+          <button onClick={() => setShowForm(s => !s)} style={{ background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            {showForm ? '✕ İptal' : '+ Kayıt Ekle'}
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -531,8 +581,35 @@ function MilkTab({ animalId }: { animalId: string }) {
         </div>
       )}
 
-      {/* Aylık özet */}
-      {stats.length > 0 && (
+      {/* GRAFİK — bar chart (CSS tabanlı) */}
+      {showChart && stats.length > 1 && (
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: 16, marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#6b7280', marginBottom: 12 }}>📈 Aylık Toplam Süt (lt)</div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 120, overflowX: 'auto', paddingBottom: 4 }}>
+            {stats.map((s, i) => {
+              const prev = stats[i - 1]
+              const pct = Math.round((s.total / maxVal) * 100)
+              const change = prev ? s.total - prev.total : 0
+              const isUp = change >= 0
+              return (
+                <div key={s.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 44 }}>
+                  {prev && (
+                    <div style={{ fontSize: 9, fontWeight: 700, color: isUp ? '#16a34a' : '#dc2626' }}>
+                      {isUp ? '▲' : '▼'}{Math.abs(change).toFixed(1)}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#2D6A4F' }}>{s.total.toFixed(0)}</div>
+                  <div style={{ width: 36, height: `${pct}%`, minHeight: 4, background: 'linear-gradient(to top, #2D6A4F, #52B788)', borderRadius: '4px 4px 0 0', transition: 'height 0.3s' }} />
+                  <div style={{ fontSize: 9, color: '#9ca3af', textAlign: 'center', lineHeight: 1.2 }}>{s.month.slice(5)}/{s.month.slice(2, 4)}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Aylık özet tablo */}
+      {!showChart && stats.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 13, color: '#6b7280', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>📊 Aylık Özet</div>
           <div style={{ overflowX: 'auto' }}>
@@ -545,19 +622,19 @@ function MilkTab({ animalId }: { animalId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {stats.map((s, i) => {
-                  const prev = stats[i + 1]
-                  const change = prev ? ((parseFloat(s.total) - parseFloat(prev.total)) / parseFloat(prev.total) * 100).toFixed(0) : null
+                {[...stats].reverse().map((s, i, arr) => {
+                  const prev = arr[i + 1]
+                  const change = prev ? ((s.total - prev.total) / prev.total * 100).toFixed(0) : null
                   return (
                     <tr key={s.month} style={{ borderBottom: '1px solid #f1f5f1' }}>
                       <td style={{ padding: '8px 12px', fontWeight: 700 }}>{s.month}</td>
                       <td style={{ padding: '8px 12px' }}>
-                        {s.total} lt
+                        {s.total.toFixed(1)} lt
                         {change && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: parseFloat(change) > 0 ? '#16a34a' : '#dc2626' }}>
                           {parseFloat(change) > 0 ? '▲' : '▼'} {Math.abs(parseFloat(change))}%
                         </span>}
                       </td>
-                      <td style={{ padding: '8px 12px' }}>{s.avg} lt</td>
+                      <td style={{ padding: '8px 12px' }}>{s.avg.toFixed(2)} lt</td>
                       <td style={{ padding: '8px 12px', color: '#9ca3af' }}>{s.count} gün</td>
                     </tr>
                   )
@@ -573,11 +650,12 @@ function MilkTab({ animalId }: { animalId: string }) {
           {data.slice(0, 30).map(r => (
             <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 13, color: '#1a2e1a', fontWeight: 700 }}>{r.record_date}</div>
-              <div style={{ display: 'flex', gap: 10, fontSize: 13 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }}>
                 {r.morning_lt && <span style={{ color: '#0369a1' }}>☀️ {r.morning_lt}lt</span>}
                 {r.evening_lt && <span style={{ color: '#7c3aed' }}>🌙 {r.evening_lt}lt</span>}
                 {r.total_lt && <span style={{ fontWeight: 800, color: '#2D6A4F' }}>= {r.total_lt}lt</span>}
                 {r.fat_percent && <span style={{ color: '#9ca3af', fontSize: 11 }}>%{r.fat_percent}yağ</span>}
+                <DeleteBtn onDelete={() => deleteRecord(r.id)} deleting={deleting === r.id} />
               </div>
             </div>
           ))}
@@ -593,13 +671,16 @@ function ReproductionTab({ animalId }: { animalId: string }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({ record_type: 'tohumlama', record_date: '', insemination_type: 'Suni', bull_ear_tag: '', expected_birth_date: '', birth_date: '', offspring_count: '', offspring_gender: '', notes: '' })
 
-  useEffect(() => {
+  const load = async () => {
     const supabase = createClient()
-    supabase.from('reproduction_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
-      .then(({ data }) => { setData(data || []); setLoading(false) })
-  }, [animalId])
+    const { data } = await supabase.from('reproduction_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
+    setData(data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [animalId])
 
   const save = async () => {
     if (!form.record_date || !form.record_type) return alert('Tarih ve tür zorunlu!')
@@ -610,14 +691,23 @@ function ReproductionTab({ animalId }: { animalId: string }) {
       offspring_count: form.offspring_count ? parseInt(form.offspring_count) : null,
       pregnancy_confirmed: form.record_type === 'gebelik_tespiti' ? true : null,
     })
-    const { data: fresh } = await supabase.from('reproduction_records').select('*').eq('animal_id', animalId).order('record_date', { ascending: false })
-    setData(fresh || [])
+    await load()
     setShowForm(false)
     setForm({ record_type: 'tohumlama', record_date: '', insemination_type: 'Suni', bull_ear_tag: '', expected_birth_date: '', birth_date: '', offspring_count: '', offspring_gender: '', notes: '' })
     setSaving(false)
   }
 
+  const deleteRecord = async (id: string) => {
+    setDeleting(id)
+    const supabase = createClient()
+    await supabase.from('reproduction_records').delete().eq('id', id)
+    setData(prev => prev.filter(r => r.id !== id))
+    setDeleting(null)
+  }
+
   const typeLabel: Record<string, string> = { tohumlama: '🔬 Tohumlama', gebelik_tespiti: '🤰 Gebelik Tespiti', dogum: '🐣 Doğum', atik: '⚠️ Atık' }
+  const typeBg: Record<string, string> = { tohumlama: '#e0f2fe', gebelik_tespiti: '#fce7f3', dogum: '#f0fdf4', atik: '#fef3c7' }
+  const typeColor: Record<string, string> = { tohumlama: '#0369a1', gebelik_tespiti: '#9d174d', dogum: '#16a34a', atik: '#92400e' }
 
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', textAlign: 'center' }}>Yükleniyor…</div>
 
@@ -696,15 +786,23 @@ function ReproductionTab({ animalId }: { animalId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.map(r => (
             <div key={r.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 800, color: '#1a2e1a' }}>{typeLabel[r.record_type] || r.record_type}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{r.record_date}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ background: typeBg[r.record_type] || '#f3f4f6', color: typeColor[r.record_type] || '#4b5563', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800 }}>
+                  {typeLabel[r.record_type] || r.record_type}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{r.record_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord(r.id)} deleting={deleting === r.id} />
+                </div>
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
                 {r.insemination_type && <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{r.insemination_type}</span>}
                 {r.offspring_count && <span style={{ background: '#f0fdf4', color: '#16a34a', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>👶 {r.offspring_count} yavru</span>}
+                {r.offspring_gender && <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{r.offspring_gender}</span>}
                 {r.expected_birth_date && <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>📅 Tahmini: {r.expected_birth_date}</span>}
+                {r.bull_ear_tag && <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>🐂 {r.bull_ear_tag}</span>}
               </div>
+              {r.notes && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>📝 {r.notes}</div>}
             </div>
           ))}
         </div>
@@ -719,27 +817,39 @@ function MovementsTab({ animalId }: { animalId: string }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [form, setForm] = useState({ movement_type: 'giris', movement_date: '', from_location: '', to_location: '', from_ikn: '', to_ikn: '', transport_company: '', plate_no: '', movement_reason: '', vet_health_report: '', notes: '' })
 
-  useEffect(() => {
+  const load = async () => {
     const supabase = createClient()
-    supabase.from('animal_movements').select('*').eq('animal_id', animalId).order('movement_date', { ascending: false })
-      .then(({ data }) => { setData(data || []); setLoading(false) })
-  }, [animalId])
+    const { data } = await supabase.from('animal_movements').select('*').eq('animal_id', animalId).order('movement_date', { ascending: false })
+    setData(data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [animalId])
 
   const save = async () => {
     if (!form.movement_date || !form.movement_type) return alert('Tarih ve hareket türü zorunlu!')
     setSaving(true)
     const supabase = createClient()
     await supabase.from('animal_movements').insert({ ...form, animal_id: animalId })
-    const { data: fresh } = await supabase.from('animal_movements').select('*').eq('animal_id', animalId).order('movement_date', { ascending: false })
-    setData(fresh || [])
+    await load()
     setShowForm(false)
     setForm({ movement_type: 'giris', movement_date: '', from_location: '', to_location: '', from_ikn: '', to_ikn: '', transport_company: '', plate_no: '', movement_reason: '', vet_health_report: '', notes: '' })
     setSaving(false)
   }
 
+  const deleteRecord = async (id: string) => {
+    setDeleting(id)
+    const supabase = createClient()
+    await supabase.from('animal_movements').delete().eq('id', id)
+    setData(prev => prev.filter(r => r.id !== id))
+    setDeleting(null)
+  }
+
   const typeIcons: Record<string, string> = { giris: '📥', cikis: '📤', dogum: '🐣', olum: '💀', kayip: '❓', kesim: '🔪' }
+  const typeBg: Record<string, string> = { giris: '#f0fdf4', cikis: '#fef3c7', dogum: '#e0f2fe', olum: '#fef2f2', kayip: '#f5f3ff', kesim: '#fef2f2' }
+  const typeColor: Record<string, string> = { giris: '#16a34a', cikis: '#d97706', dogum: '#0369a1', olum: '#dc2626', kayip: '#7c3aed', kesim: '#dc2626' }
 
   if (loading) return <div style={{ padding: 20, color: '#9ca3af', textAlign: 'center' }}>Yükleniyor…</div>
 
@@ -785,16 +895,28 @@ function MovementsTab({ animalId }: { animalId: string }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.map(m => (
             <div key={m.id} style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div style={{ fontWeight: 800, color: '#1a2e1a' }}>{typeIcons[m.movement_type]} {m.movement_type.charAt(0).toUpperCase() + m.movement_type.slice(1)}</div>
-                <div style={{ fontSize: 11, color: '#9ca3af' }}>{m.movement_date}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <span style={{ background: typeBg[m.movement_type] || '#f3f4f6', color: typeColor[m.movement_type] || '#4b5563', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 800 }}>
+                  {typeIcons[m.movement_type]} {m.movement_type.charAt(0).toUpperCase() + m.movement_type.slice(1)}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: '#9ca3af' }}>{m.movement_date}</div>
+                  <DeleteBtn onDelete={() => deleteRecord(m.id)} deleting={deleting === m.id} />
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-                {m.from_location && <span>📍 {m.from_location} → </span>}
-                {m.to_location && <span>{m.to_location}</span>}
+              {(m.from_location || m.to_location) && (
+                <div style={{ fontSize: 12, color: '#374151', marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {m.from_location && <span>📍 {m.from_location}</span>}
+                  {m.from_location && m.to_location && <span style={{ color: '#9ca3af' }}>→</span>}
+                  {m.to_location && <span>📍 {m.to_location}</span>}
+                </div>
+              )}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 6 }}>
+                {m.vet_health_report && <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>📋 VSR: {m.vet_health_report}</span>}
+                {m.plate_no && <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>🚗 {m.plate_no}</span>}
+                {m.transport_company && <span style={{ background: '#f3f4f6', color: '#4b5563', padding: '2px 8px', borderRadius: 20, fontSize: 11 }}>{m.transport_company}</span>}
               </div>
-              {m.vet_health_report && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>📋 VSR: {m.vet_health_report}</div>}
-              {m.plate_no && <div style={{ fontSize: 11, color: '#9ca3af' }}>🚗 {m.plate_no}</div>}
+              {m.movement_reason && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>📝 {m.movement_reason}</div>}
             </div>
           ))}
         </div>
@@ -897,8 +1019,7 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
       {/* Tab içeriği */}
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '20px 16px 80px' }}>
 
-
-      {/* ── DÜZENLEME MODALI ──────────────────────────────────────── */}
+      {/* DÜZENLEME MODALI */}
       {isEditing && editForm && (
         <div onClick={(e) => { if (e.target === e.currentTarget) setIsEditing(false) }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: 'Nunito, sans-serif' }}>
@@ -907,69 +1028,47 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
               <div style={{ fontWeight: 900, fontSize: 18, color: '#1a2e1a' }}>✏️ Hayvanı Düzenle</div>
               <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af' }}>×</button>
             </div>
-
             {[
-              { label: 'Küpe No', field: 'ear_tag_no' },
-              { label: '2. Küpe No', field: 'ear_tag_no_2' },
-              { label: 'Chip No', field: 'chip_no' },
-              { label: 'TÜRKVet No', field: 'turkvet_no' },
-              { label: 'Pasaport No', field: 'pasaport_no' },
-              { label: 'IKN', field: 'ikn' },
-              { label: 'Irk', field: 'breed' },
-              { label: 'Doğum Tarihi', field: 'birth_date', type: 'date' },
-              { label: 'Ağırlık (kg)', field: 'weight_kg', type: 'number' },
-              { label: 'Tahmini Kesim Ağırlığı', field: 'est_slaughter_weight', type: 'number' },
-              { label: 'Şehir', field: 'city' },
-              { label: 'İlçe', field: 'district' },
+              { label: 'Küpe No', field: 'ear_tag_no' }, { label: '2. Küpe No', field: 'ear_tag_no_2' },
+              { label: 'Chip No', field: 'chip_no' }, { label: 'TÜRKVet No', field: 'turkvet_no' },
+              { label: 'Pasaport No', field: 'pasaport_no' }, { label: 'IKN', field: 'ikn' },
+              { label: 'Irk', field: 'breed' }, { label: 'Doğum Tarihi', field: 'birth_date', type: 'date' },
+              { label: 'Ağırlık (kg)', field: 'weight_kg', type: 'number' }, { label: 'Tahmini Kesim Ağırlığı', field: 'est_slaughter_weight', type: 'number' },
+              { label: 'Şehir', field: 'city' }, { label: 'İlçe', field: 'district' },
             ].map(({ label, field, type }) => (
               <div key={field} style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{label}</label>
-                <input
-                  type={type || 'text'}
-                  value={editForm[field] || ''}
-                  onChange={e => setEditForm((p: any) => ({ ...p, [field]: e.target.value }))}
-                  style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif', boxSizing: 'border-box' }}
-                />
+                <input type={type || 'text'} value={editForm[field] || ''} onChange={e => setEditForm((p: any) => ({ ...p, [field]: e.target.value }))}
+                  style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif', boxSizing: 'border-box' }} />
               </div>
             ))}
-
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Tür</label>
               <select value={editForm.species || ''} onChange={e => setEditForm((p: any) => ({ ...p, species: e.target.value }))}
                 style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
-                <option value="buyukbas">Büyükbaş</option>
-                <option value="kucukbas">Küçükbaş</option>
+                <option value="buyukbas">Büyükbaş</option><option value="kucukbas">Küçükbaş</option>
               </select>
             </div>
-
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Cinsiyet</label>
               <select value={editForm.gender || ''} onChange={e => setEditForm((p: any) => ({ ...p, gender: e.target.value }))}
                 style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
-                <option value="erkek">Erkek</option>
-                <option value="disi">Dişi</option>
+                <option value="erkek">Erkek</option><option value="disi">Dişi</option>
               </select>
             </div>
-
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Durum</label>
               <select value={editForm.status || ''} onChange={e => setEditForm((p: any) => ({ ...p, status: e.target.value }))}
                 style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif' }}>
-                <option value="active">Aktif</option>
-                <option value="reserved">Rezerve</option>
-                <option value="sold">Satıldı</option>
-                <option value="slaughtered">Kesildi</option>
-                <option value="dead">Öldü</option>
-                <option value="archived">Arşiv</option>
+                <option value="active">Aktif</option><option value="reserved">Rezerve</option><option value="sold">Satıldı</option>
+                <option value="slaughtered">Kesildi</option><option value="dead">Öldü</option><option value="archived">Arşiv</option>
               </select>
             </div>
-
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Sağlık Notları</label>
               <textarea value={editForm.health_notes || ''} onChange={e => setEditForm((p: any) => ({ ...p, health_notes: e.target.value }))}
                 rows={3} style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', fontSize: 14, fontFamily: 'Nunito, sans-serif', resize: 'vertical', boxSizing: 'border-box' }} />
             </div>
-
             <button disabled={saving} onClick={async () => {
               setSaving(true)
               const supabase = (await import('@/lib/supabase')).createClient()
@@ -1006,7 +1105,6 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
               <Field label="Pasaport No" value={animal.pasaport_no} />
               <Field label="IKN" value={animal.ikn} />
             </div>
-
             <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #e5e7eb' }}>
               <div style={{ fontWeight: 800, color: '#2D6A4F', fontSize: 13, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🧬 Biyolojik Bilgiler</div>
               <Field label="Tür" value={animal.species === 'buyukbas' ? 'Büyükbaş' : 'Küçükbaş'} />
@@ -1016,27 +1114,19 @@ export default function AnimalDetailPage({ params }: { params: { id: string } })
               <Field label="Doğum Tipi" value={animal.birth_type} />
               <Field label="Ağırlık" value={animal.weight_kg ? `${animal.weight_kg} kg` : null} />
               <Field label="Tahmini Kesim Ağırlığı" value={animal.est_slaughter_weight ? `${animal.est_slaughter_weight} kg` : null} />
-              <Field label="Renk / Desen" value={animal.coat_color} />
-              <Field label="Ayırt Edici İşaretler" value={animal.distinctive_marks} />
             </div>
-
             <div style={{ background: 'white', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #e5e7eb' }}>
               <div style={{ fontWeight: 800, color: '#2D6A4F', fontSize: 13, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>🌳 Soyağacı</div>
-              <Field label="Anne Küpe No" value={animal.anne_kupe_no} />
-              <Field label="Anne Irkı" value={animal.anne_irkı} />
-              <Field label="Baba Küpe No" value={animal.baba_kupe_no} />
-              <Field label="Baba Irkı" value={animal.baba_irkı} />
+              <Field label="Anne Küpe No" value={animal.dame_ear_tag} />
+              <Field label="Baba Küpe No" value={animal.sire_ear_tag} />
               <Field label="Soy Kütüğü Sınıfı" value={animal.stud_book_class} />
             </div>
-
             <div style={{ background: 'white', borderRadius: 12, padding: 16, border: '1px solid #e5e7eb' }}>
               <div style={{ fontWeight: 800, color: '#2D6A4F', fontSize: 13, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>📝 Notlar</div>
               {animal.health_notes && <div style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}><span style={{ fontWeight: 700 }}>Sağlık: </span>{animal.health_notes}</div>}
               {animal.vaccination_notes && <div style={{ fontSize: 13, color: '#374151', marginBottom: 8 }}><span style={{ fontWeight: 700 }}>Aşı: </span>{animal.vaccination_notes}</div>}
               {!animal.health_notes && !animal.vaccination_notes && <div style={{ color: '#9ca3af', fontSize: 13 }}>Not yok</div>}
             </div>
-
-            {/* QR & Düzenle butonları */}
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button onClick={() => router.push(`/scan/${animal.id}`)} style={{ flex: 1, background: 'white', border: '1px solid #2D6A4F', color: '#2D6A4F', borderRadius: 10, padding: '12px', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
                 📱 QR Sayfası
